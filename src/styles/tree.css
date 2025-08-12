@@ -1,0 +1,91 @@
+/* Shared background palette (matches home.css and dashboard.css) */
+:root{
+  --bg:#0b0f1a;
+  --bg-2:#0f172a;
+  --panel:#0b1220;
+  --text:#e6e9f2;
+  --muted:#9aa3b2;
+
+  --blue:#6aa9ff;       /* Debt */
+  --purple:#c08bff;     /* Equity */
+  --emerald:#44d5a7;    /* Outcome */
+
+  --ring:rgba(166,178,195,.18);
+  --border:rgba(166,178,195,.18);
+}
+
+/* Tree v3 – wrapper and stage use the same layered gradients as home/dashboard */
+.tree-v3,
+.tree-v3-stage,
+.tree-v3-wrap {
+  position: relative;
+  color: var(--text);
+  /* Same layered gradient stack used on homepage/dashboard */
+  background:
+    radial-gradient(1200px 800px at 12% -10%, rgba(106,169,255,.18), transparent 55%),
+    radial-gradient(1200px 800px at 88% -18%, rgba(192,139,255,.16), transparent 55%),
+    linear-gradient(180deg, var(--panel), var(--bg-2) 40%, var(--bg) 100%);
+}
+
+/* Optional: subtle noise overlay for the page (same as homepage) */
+.tree-v3::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'%3E%3C/feColorMatrix%3E%3CfeComponentTransfer%3E%3CfeFuncA type='table' tableValues='0 0 0 0 .015 .03 .04 .05 .055 .06'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity:.35;
+  mix-blend-mode:soft-light;
+  z-index:0;
+}
+
+/* Tree page layout */
+.tree-v3 { padding: 12px 16px 16px; }
+.tree-v3-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+  position: relative; z-index: 1;
+}
+.chip {
+  border: 1px solid var(--border);
+  padding: 6px 10px; border-radius: 999px; font-size: 12px;
+  background: rgba(255,255,255,0.03);
+}
+.chip.muted { color: var(--muted); }
+
+.tree-v3-stage, .tree-v3-wrap {
+  width: 100%;
+  min-height: 660px;
+  height: calc(100vh - 140px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  /* Remove any old semi-transparent gradients to let the shared background show through */
+}
+
+/* SVG styling (keep existing visuals) */
+.tlink { filter: drop-shadow(0 0 1px rgba(0,0,0,0.25)); }
+
+.tnode .core {
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.25));
+  transition: filter 0.18s ease;
+}
+.tnode:hover .core { filter: drop-shadow(0 6px 10px rgba(0,0,0,0.35)); }
+
+.tnode .halo { filter: drop-shadow(0 0 10px rgba(56,189,248,0.45)); }
+
+.nlabel {
+  user-select: none;
+  paint-order: stroke; stroke: rgba(0,0,0,0.28); stroke-width: 3px; stroke-linejoin: round;
+  fill: var(--text); font-size: 13px; letter-spacing: 0.1px;
+}
+
+/* Keep color tokens consistent (if not inherited globally) */
+:root{
+  --root:#22c55e;
+  --debt:#fa2a2a; --debt-stroke:#1d4ed8; --debt-link:#60a5fa;
+  --equity:#0db355; --equity-stroke:#7e22ce; --equity-link:#c084fc;
+  --outcome:#b91010; --outcome-stroke:#047857; --outcome-link:#34d399;
+  --accent:#38bdf8;
+}
