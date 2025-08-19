@@ -35,9 +35,10 @@ export default forwardRef(function DecisionTree(
     return h;
   }, []);
 
+  // Collapse everything except root
   useEffect(() => {
     rootH.descendants().forEach((d) => {
-      if (d.depth > 1 && d.children) {
+      if (d.depth > 0 && d.children) {
         d._children = d.children;
         d.children = null;
       }
@@ -95,6 +96,17 @@ export default forwardRef(function DecisionTree(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dims]);
 
+  // Collapse all branches except the clicked path
+  function collapseAllExcept(keepNode) {
+    const keepIds = new Set(keepNode.ancestors().map(a => a.data.id));
+    rootH.descendants().forEach((n) => {
+      if (!keepIds.has(n.data.id) && n.children) {
+        n._children = n.children;
+        n.children = null;
+      }
+    });
+  }
+
   function centerOn(idOrNode, dur = animationMs) {
     const svg = d3.select(svgRef.current);
     let node = idOrNode;
@@ -114,21 +126,13 @@ export default forwardRef(function DecisionTree(
     svg
       .transition()
       .duration(dur)
-      .call(zoom.current.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
-  }
-
-  function toggle(d) {
-    if (d.children) {
-      d._children = d.children;
-      d.children = null;
-    } else if (d._children) {
-      d.children = d._children;
-      d._children = null;
-    }
+      .call(
+        zoom.current.transform,
+        d3.zoomIdentity.translate(tx, ty).scale(k)
+      );
   }
 
   function render(source) {
-    const svg = d3.select(svgRef.current);
     const g = d3.select(gRef.current);
 
     const W = dims.w - MARGIN.left - MARGIN.right;
@@ -140,7 +144,6 @@ export default forwardRef(function DecisionTree(
       .separation((a, b) => (a.parent === b.parent ? 1.4 : 2.0));
 
     const root = tree(rootH);
-
     resolveCollisions(root.descendants(), minRowGap);
 
     const nodes = root.descendants();
@@ -151,7 +154,10 @@ export default forwardRef(function DecisionTree(
       selectedNode ? selectedNode.ancestors().map((n) => n.data.id) : []
     );
 
-    const linkSel = g.selectAll("path.tlink").data(links, (d) => d.target.data.id);
+    // LINKS
+    const linkSel = g
+      .selectAll("path.tlink")
+      .data(links, (d) => d.target.data.id);
 
     const linkEnter = linkSel
       .enter()
@@ -164,8 +170,7 @@ export default forwardRef(function DecisionTree(
       .attr("d", () => elbow({ source, target: source }))
       .call(strokeDrawIn);
 
-    linkEnter
-      .merge(linkSel)
+    linkEnter.merge(linkSel)
       .transition()
       .duration(animationMs)
       .attr("stroke", (d) => linkColor(d))
@@ -174,13 +179,13 @@ export default forwardRef(function DecisionTree(
       )
       .attr("d", (d) => elbow(d));
 
-    linkSel
-      .exit()
+    linkSel.exit()
       .transition()
       .duration(animationMs)
       .attr("d", () => elbow({ source, target: source }))
       .remove();
 
+    // NODES
     const nodeSel = g.selectAll("g.tnode").data(nodes, (d) => d.data.id);
 
     const nodeEnter = nodeSel
@@ -188,32 +193,31 @@ export default forwardRef(function DecisionTree(
       .append("g")
       .attr("class", "tnode")
       .attr("id", (d) => `node-${d.data.id}`)
-      .attr("data-node-id", (d) => d.data.id)
       .attr("transform", () => `translate(${source.y0 || 0},${source.x0 || 0})`)
       .on("click", (_, d) => {
-        if (d.children || d._children) toggle(d);
+        collapseAllExcept(d); // close other branches
+        // toggle this one
+        if (d._children) {
+          d.children = d._children;
+          d._children = null;
+        } else if (d.children) {
+          d._children = d.children;
+          d.children = null;
+        }
 
         setSelectedId(d.data.id);
 
-        // compute pathIds root->node
         const path = [];
         let cur = d;
         while (cur) {
           path.unshift(cur.data.id);
           cur = cur.parent;
         }
-        // write to global store for Dashboard
-        setSelected({ nodeId: d.data.id, name: d.data.name, pathIds: path });
+        setSelected({ nodeId: d.data.id, pathIds: path });
 
         onSelect && onSelect(d.data);
         render(d);
         centerOn(d);
-      })
-      .on("mouseenter", function () {
-        d3.select(this).select("circle.core").transition().duration(140).attr("r", 10.5);
-      })
-      .on("mouseleave", function () {
-        d3.select(this).select("circle.core").transition().duration(140).attr("r", 9);
       });
 
     nodeEnter
@@ -258,14 +262,12 @@ export default forwardRef(function DecisionTree(
     });
 
     const nodeUpd = nodeEnter.merge(nodeSel);
-
     nodeUpd
       .transition()
       .duration(animationMs)
       .attr("transform", (d) => `translate(${d.y},${d.xAdj ?? d.x})`);
 
-    nodeUpd
-      .select("circle.core")
+    nodeUpd.select("circle.core")
       .transition()
       .duration(animationMs)
       .attr("fill", (d) => nodeFill(d))
@@ -274,22 +276,7 @@ export default forwardRef(function DecisionTree(
         selectedId ? (pathIds.has(d.data.id) ? 1 : 0.4) : 1
       );
 
-    nodeUpd
-      .select("circle.halo")
-      .transition()
-      .duration(animationMs)
-      .attr("opacity", (d) => (d.data.id === selectedId ? 1 : 0));
-
-    nodeUpd.each(function (d) {
-      const gN = d3.select(this);
-      const isParentSide = d.children || d._children;
-      const x = isParentSide ? -22 : 22;
-      const anchor = isParentSide ? "end" : "start";
-      gN.select("text.nlabel").attr("x", x).attr("text-anchor", anchor);
-    });
-
-    nodeSel
-      .exit()
+    nodeSel.exit()
       .transition()
       .duration(animationMs)
       .attr("transform", () => `translate(${source.y},${source.x})`)
@@ -302,6 +289,7 @@ export default forwardRef(function DecisionTree(
     });
   }
 
+  // Color & shape helpers
   function isDebt(d) {
     let p = d;
     while (p) {
@@ -310,24 +298,22 @@ export default forwardRef(function DecisionTree(
     }
     return false;
   }
-
   function nodeFill(d) {
     if (d.depth === 0) return "var(--root)";
     if (d.data.outcome) return "var(--outcome)";
     return isDebt(d) ? "var(--debt)" : "var(--equity)";
   }
-
   function nodeStroke(d) {
     if (d.data.outcome) return "var(--outcome-stroke)";
     return isDebt(d) ? "var(--debt-stroke)" : "var(--equity-stroke)";
   }
-
   function linkColor(l) {
     const t = l.target;
     if (t.data.outcome) return "var(--outcome-link)";
     return isDebt(t) ? "var(--debt-link)" : "var(--equity-link)";
   }
 
+  // Geometry helpers
   function elbow(l) {
     const sx = l.source.xAdj ?? l.source.x;
     const sy = l.source.y;
@@ -336,7 +322,6 @@ export default forwardRef(function DecisionTree(
     const mx = (sy + ty) / 2;
     return `M${sy},${sx}C${mx},${sx} ${mx},${tx} ${ty},${tx}`;
   }
-
   function strokeDrawIn(sel) {
     sel.each(function () {
       const path = d3.select(this);
@@ -350,7 +335,6 @@ export default forwardRef(function DecisionTree(
         .attr("stroke-dashoffset", 0);
     });
   }
-
   function wrapText(textSel, width) {
     textSel.each(function () {
       const text = d3.select(this);
@@ -360,9 +344,7 @@ export default forwardRef(function DecisionTree(
       const lineHeight = 1.2;
       const y = text.attr("y") || 0;
       const dy = parseFloat(text.attr("dy")) || 0;
-      let tspan = text
-        .text(null)
-        .append("tspan")
+      let tspan = text.text(null).append("tspan")
         .attr("x", text.attr("x"))
         .attr("y", y)
         .attr("dy", dy + "em");
@@ -374,8 +356,7 @@ export default forwardRef(function DecisionTree(
           line.pop();
           tspan.text(line.join(" "));
           line = [w];
-          tspan = text
-            .append("tspan")
+          tspan = text.append("tspan")
             .attr("x", text.attr("x"))
             .attr("y", y)
             .attr("dy", ++lineNumber * lineHeight + dy + "em")
@@ -384,8 +365,6 @@ export default forwardRef(function DecisionTree(
       }
     });
   }
-
-  // robust label lane: adjust labelY (not node x) then reflect into xAdj for transforms
   function resolveCollisions(nodes, minGapPx) {
     const byDepth = d3.group(nodes, (d) => d.depth);
     byDepth.forEach((arr) => {
@@ -395,7 +374,7 @@ export default forwardRef(function DecisionTree(
         const prev = arr[i - 1];
         const cur = arr[i];
         const diff = cur.labelY - prev.labelY;
-        if (diff < minGapPx) cur.labelY += (minGapPx - diff);
+        if (diff < minGapPx) cur.labelY += minGapPx - diff;
       }
       const low = arr[0].labelY;
       const high = arr[arr.length - 1].labelY;
