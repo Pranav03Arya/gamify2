@@ -134,21 +134,7 @@ export default function HomePage() {
 
      
 
-      {/* Final CTA */}
-      <section className="final-cta ProseMax">
-        <div className="cta-slab glass hover-lift">
-          <h3>Ready to explore?</h3>
-          <p className="muted">Choose a mode below and dive into the decision tree. You can switch anytime.</p>
-          <div className="cta-row">
-            <button className="btn btn-primary" onClick={startGuided}>
-              Guided Maze <span className="arrow">→</span>
-            </button>
-            <button className="btn btn-ghost" onClick={startExplore}>
-              Explore Freely
-            </button>
-          </div>
-        </div>
-      </section>
+      
     </main>
   );
 }
